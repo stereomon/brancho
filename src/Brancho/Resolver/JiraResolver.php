@@ -20,6 +20,16 @@ class JiraResolver extends AbstractResolver
     ];
 
     /**
+     * @var string[]
+     */
+    protected $issueTypeToPrefixMap = [
+        'epic' => 'master',
+        'bug' => 'master',
+        'story' => 'dev',
+        'task' => 'dev',
+    ];
+
+    /**
      * @param InputInterface $input
      * @param OutputInterface $output
      * @param ContextInterface $context
@@ -49,8 +59,15 @@ class JiraResolver extends AbstractResolver
         $issueType = $jiraIssue['fields']['issuetype']['name'];
 
         $mappedType = $this->mapIssueType($issueType);
+        $prefix = $this->mapIssueTypeToPrefix($issueType);
 
-        return sprintf('%s/%s/%s', $mappedType, $issue, $filter->filter($summary));
+        return sprintf(
+            '%s/%s/%s-%s',
+            $mappedType,
+            $filter->filter($issue),
+            $prefix,
+            $filter->filter($summary)
+        );
     }
 
     /**
@@ -61,5 +78,15 @@ class JiraResolver extends AbstractResolver
     protected function mapIssueType(string $issueType): string
     {
         return $this->issueTypeMap[strtolower($issueType)];
+    }
+
+    /**
+     * @param string $issueType
+     *
+     * @return string
+     */
+    protected function mapIssueTypeToPrefix(string $issueType): string
+    {
+        return $this->issueTypeToPrefixMap[strtolower($issueType)];
     }
 }
