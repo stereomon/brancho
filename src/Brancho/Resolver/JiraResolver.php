@@ -26,8 +26,8 @@ class JiraResolver extends AbstractResolver
     protected $issueTypeToPrefixMap = [
         'epic' => 'master',
         'bug' => 'master',
-        'story' => 'dev',
-        'task' => 'dev',
+        'story' => 'master',
+        'task' => 'master',
     ];
 
     /**
@@ -56,38 +56,76 @@ class JiraResolver extends AbstractResolver
             return null;
         }
 
-        $summary = $jiraIssue['fields']['summary'];
-        $issueType = $jiraIssue['fields']['issuetype']['name'];
+        $parentJiraIssue = $this->getParentJiraIssue($jiraIssue, $config);
 
-        $mappedType = $this->mapIssueType($issueType);
-        $prefix = $this->mapIssueTypeToPrefix($issueType);
+        $type = $this->getType($jiraIssue, $parentJiraIssue);
+        $prefix = $this->getPrefix($jiraIssue);
 
         return sprintf(
             '%s/%s%s/%s-%s',
-            $mappedType,
-            $this->getParentIssue($jiraIssue, $config, $filter),
+            $type,
+            $this->getParentIssue($parentJiraIssue, $filter),
             $filter->filter($issue),
             $prefix,
-            $filter->filter($summary)
+            $filter->filter($jiraIssue['fields']['summary'])
         );
     }
 
     /**
      * @param array $jiraIssue
-     * @param array $config
-     * @param FilterInterface $filter
+     * @param array $parentJiraIssue
      *
      * @return string
      */
-    protected function getParentIssue(array $jiraIssue, array $config, FilterInterface $filter): string
+    protected function getType(array $jiraIssue, array $parentJiraIssue): string
     {
-        $parentIssue = '';
+        if (isset($parentJiraIssue['fields']['issuetype']['name'])) {
+            return $this->mapIssueType($parentJiraIssue['fields']['issuetype']['name']);
+        }
+
+        return $this->mapIssueType($jiraIssue['fields']['issuetype']['name']);
+    }
+
+    /**
+     * @param array $jiraIssue
+     *
+     * @return string
+     */
+    protected function getPrefix(array $jiraIssue): string
+    {
+        return $this->mapIssueTypeToPrefix($jiraIssue['fields']['issuetype']['name']);
+    }
+
+    /**
+     * @param array $jiraIssue
+     * @param array $config
+     *
+     * @return array
+     */
+    protected function getParentJiraIssue(array $jiraIssue, array $config): array
+    {
+        $parentJiraIssue = [];
 
         if (isset($jiraIssue['fields']['customfield_10008'])) {
             $parentJiraIssue = $this->getFactory()
                 ->createJira()
                 ->getJiraIssue($jiraIssue['fields']['customfield_10008'], $config);
+        }
 
+        return $parentJiraIssue;
+    }
+
+    /**
+     * @param array $parentJiraIssue
+     * @param FilterInterface $filter
+     *
+     * @return string
+     */
+    protected function getParentIssue(array $parentJiraIssue, FilterInterface $filter): string
+    {
+        $parentIssue = '';
+
+        if (isset($parentJiraIssue['key'])) {
             $parentIssue = sprintf('%s/', $filter->filter($parentJiraIssue['key']));
         }
 
